@@ -7,7 +7,11 @@ var static = require('node-static'),
 
 var fileServer = new static.Server('./public');
 var port = Number(process.env.PORT || 5000);
-var mongoUri = process.env.MONGOLAB_URI || process.env.MONGOHQ_URL || 'mongodb://localhost/mydb';
+var mongoUri = 'mongodb://localhost:27017/mydb';
+if (process.env.VCAP_SERVICES) {
+  var env = JSON.parse(process.env.VCAP_SERVICES);
+  mongoUri = env['mongolab'][0].credentials.uri;
+}
 
 require('http').createServer(function (req, resp) {
   if (req.url == '/save' && req.method.toLowerCase() == 'post') {
