@@ -137,8 +137,22 @@ function findKeyFrameByPos(ray, pos) {
 	return -1;
 }
 
+function animationReset(elId, transform, value) {
+	var el = document.getElementById(elId);
+	switch (transform) {
+		case 'rotate':
+			// split up rotation data
+			var to = value.split(" ");
+			el.setAttribute('transform', 'rotate(' + to[0] + ', ' + to[1] + ', ' + to[2] + ')');
+			break;
+	}
+
+
+}
+
 function recalculateAnimations(trackID) {
 	console.log('recalculating Animations');
+	console.log(tracks);
 	var keyFrames = tracks[trackID].keyframes;
 	keyFrames = keyFrames.sort(function(a, b){
 		return (parseInt(a.pos) - parseInt(b.pos));
@@ -185,10 +199,11 @@ function recalculateAnimations(trackID) {
 						        var anim = document.createElementNS("http://www.w3.org/2000/svg", "animateTransform");
 			        			anim.setAttribute('attributeName', 'transform');
 			        			anim.setAttribute('begin', (fields[j][2]).toFixed(2)+'s');
-			        			anim.setAttribute('dur', (fields[j][2]-pTs(kf['pos'])).toFixed(2)+"s");
+			        			anim.setAttribute('dur', (pTs(kf['pos'])-fields[j][2]).toFixed(2)+"s");
 			        			anim.setAttribute('type', 'rotate');
 			        			anim.setAttribute('from', fields[j][1]+' 100 100'/*parseInt(fields[j][1])*/);
 			        			anim.setAttribute('to', kfa["rotate"]+' 100 100'/*kfa["rotate"]*/);
+			        			anim.setAttribute('onend', 'animationReset("' + el.getAttribute('id') + '", "' + anim.getAttribute('type') +  '", "'+ anim.getAttribute('to')+'")');
 			        			el.appendChild(anim);
 			        			console.log('appended animation');
 						        break;
