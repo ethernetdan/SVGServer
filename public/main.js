@@ -114,6 +114,7 @@ $(function(){
 		var obj = {
 			"el": newG,
 			"keyframes": [],
+			"animations": [],
 			"layerName": fileName.replace('.svg','')
 		}
 		tracks[trackID] = obj;
@@ -273,7 +274,6 @@ $(function(){
 			populateDetails(currentTrack, currentKeyFrame);
 			$('.layer-title-container').html('<span style="background-color:' + $(e.target).parent().data('color') + ';"></span><span class="layer-title">' + $(e.target).parent().parent().find('.layer-name').html() + '</span>');
 			$('.layer-details-inner').removeClass('hidden');
-			alignStick(currentKeyFrame);
 		}
 	});
 
