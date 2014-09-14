@@ -31,23 +31,22 @@ require('http').createServer(function (req, resp) {
         });
       });
     });
-      return;
+    return;
   } else if (req.url.indexOf("/load") == 0 && req.method.toLowerCase() == 'get') {
     var id = req.url.split('/');
     var data;
 
     mongo.Db.connect(mongoUri, function (err, db) {
         db.collection('svg', function(er, collection) {
-              collection.findOne({_id: new ObjectID(id[2])},  function(er,rs) {
+              collection.findOne({_id: new ObjectID(id[2])}, function(er,rs) {
                 if (!er) {
-                  resp.write(rs.fields.data);
+                  resp.write(JSON.stringify(rs.fields));
                   resp.end();
                 } else {
                   console.log(err + er);
                   resp.end(500);
                 }
               });
-
         });
     });
     return;
