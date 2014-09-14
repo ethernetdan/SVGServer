@@ -1,3 +1,4 @@
+
 $.fn.draggable = function(){
     var $this = this,
     ns = 'draggable_'+(Math.random()+'').replace('.',''),
@@ -8,40 +9,73 @@ $.fn.draggable = function(){
     adjX = 0, adjY = 0;
 
     $this.mousedown(function(ev){
-        var pos = $this.offset();
-        if (isFixed) {
-            adjX = $w.scrollLeft(); adjY = $w.scrollTop();
-        }
-        var ox = (ev.pageX - pos.left), oy = (ev.pageY - pos.top);
-        $this.data(ns,{ x : ox, y: oy });
-        $w.on(mm, function(ev){
-            ev.preventDefault();
-            ev.stopPropagation();
-            if (isFixed) {
-                adjX = $w.scrollLeft(); adjY = $w.scrollTop();
-            }
-            var offset = $this.data(ns);
-            // $this.css({left: ev.pageX - adjX - offset.x, top: ev.pageY - adjY - offset.y});
-            $this.css({left: ev.pageX - adjX - offset.x - $('.timeline').css('padding-left').replace('px','')});
-        });
-        $w.on(mu, function(){
-        	if($this.hasClass('start')){
-        		console.log($this.parent().css('margin-left').replace('px','')+ev.pageX - adjX - $this.data(ns).x - $('.timeline').css('padding-left').replace('px','')+'px');
-        		$this.parent().css('background-color','green').css('margin-left',$this.parent().css('margin-left')+ev.pageX - adjX - $this.data(ns).x - $('.timeline').css('padding-left').replace('px','')+'px');
-        	}
-            $w.off(mm + ' ' + mu).removeData(ns);
-        });
+    	if(!$(ev.target).is('.width-handle')){
+	        var pos = $this.offset();
+	        if (isFixed) {
+	            adjX = $w.scrollLeft(); adjY = $w.scrollTop();
+	        }
+	        var ox = (ev.pageX - pos.left), oy = (ev.pageY - pos.top);
+	        $this.data(ns,{ x : ox, y: oy });
+	        $w.on(mm, function(ev){
+	            ev.preventDefault();
+	            ev.stopPropagation();
+	            if (isFixed) {
+	                adjX = $w.scrollLeft(); adjY = $w.scrollTop();
+	            }
+	            var offset = $this.data(ns);
+	            // $this.css({left: ev.pageX - adjX - offset.x, top: ev.pageY - adjY - offset.y});
+	            $this.css({left: ev.pageX - adjX - offset.x - $('.timeline').css('padding-left').replace('px','')});
+	        });
+	        $w.on(mu, function(){
+	        	if($this.hasClass('track')){
+	        		// track dragged, call handler
+	        		// todo david
+	        		
+	        	}
+	            $w.off(mm + ' ' + mu).removeData(ns);
+	        });
+	    }
     });
 
     return this;
 };
 
+$.fn.dragWidth = function(){
+	var $this = this;
+    ns = 'draggableWidth_'+(Math.random()+'').replace('.',''),
+    mm = "mousemove."+ns,
+    mu = "mouseup."+ns;
+ 	$this.mousedown(function(ev){
+ 		var pos = $this.offset();
+ 		var ox = (ev.pageX - pos.left), oy = (ev.pageY - pos.top);
+ 		$this.data(ns,{ x: ox, y: oy});
+ 		$this.data('origWidth',$this.parent().width());
+ 		$(window).on(mm, function(ev){
+ 			ev.preventDefault();
+ 			ev.stopPropagation();
+ 			var offset = $this.data(ns);
+ 			var relPos = $this.parent().parent().css('left').replace('px','')!=='auto' ? $this.parent().parent().css('left').replace('px','') : 0;
+ 			$this.parent().width( ev.pageX - offset.x - $('.timeline').css('padding-left').replace('px','') - relPos);
+ 		});
 
-
+        $(window).on(mu, function(){
+            $(window).off(mm + ' ' + mu).removeData(ns);
+        });
+ 	});
+	return this;
+};
 
 var animationDuration = 40; // seconds
 var animationWidth = 500; // px
 var animationHeight = 400; // px
+
+var currentKeyFrame = null;
+var currentTrack = null;
+
+var draggingKeyFrame = false;
+var draggingTrack = false;
+
+var tracks = {};
 var scale = 1; // unitless, scale of canvas
 
 
@@ -66,26 +100,28 @@ $(function(){
 	    progress = document.getElementById('uploadprogress'),
 	    fileupload = document.getElementById('upload');
 
-	// "filereader formdata progress".split(' ').forEach(function (api) {
-	//   if (tests[api] === false) {
-	//     support[api].className = 'fail';
-	//   } else {
-	//     support[api].className = 'hidden';
-	//   }
-	// });
 
-	function processSvg(s) {
+	function processSvg(s,fileName) {
 		var parser = new DOMParser();
 		var doc = parser.parseFromString(s, "image/svg+xml");
 		var svgParsed = $($(doc).find('svg')[0]).children();
 		var newG = document.createElementNS("http://www.w3.org/2000/svg", "g");
-		newG.id = (new Date).getTime();
-		newG.className = "unit"
+		var trackID = (new Date).getTime()
+		newG.id = trackID;
+		newG.className = "vector-group";
+		var obj = {
+			"el": newG,
+			"keyframes": [],
+			"animations": []
+		}
+		tracks[trackID] = obj;
 		for(var i = 0; i < svgParsed.length; i ++){
 			newG.appendChild(svgParsed[i])
 		}
-		$('#canvas').append(newG);	
-		buildLayers();
+		$('#canvas').append(newG);
+
+		createTrack(trackID,fileName);
+		createKeyFrame(trackID, 0);
 	}
 
 	function previewfile(file) {
@@ -94,7 +130,7 @@ $(function(){
 	    reader.onload = function (event) {
 	      var base64Svg = event.target.result;
 	      base64Svg = base64Svg.replace('data:image/svg+xml;base64,', '');
-	      processSvg(decode_base64(base64Svg));
+	      processSvg(decode_base64(base64Svg),file.name);
 	    };
 
 	    reader.readAsDataURL(file);
@@ -115,6 +151,7 @@ $(function(){
 	if (tests.dnd) { 
 	  holder.ondragover = function () { this.className = 'hover'; $('#drop-msg div').height($('body').height()-160); return false; };
 	  holder.ondragend = function () { this.className = ''; return false; };
+	  // holder.ondragleave = function () { this.className = ''; return false; };
 	  holder.ondrop = function (e) {
 	    this.className = '';
 	    e.preventDefault();
@@ -144,10 +181,11 @@ $(function(){
 	    return r;
 	}
 
+
 	function allowDrag(){
 		$('.keyframe').each(function(i,v){
 			if(!$(v).hasClass('draggable')){
-				$(v).addClass('draggable').draggable();
+				$(v).addClass('draggable');//.draggable();
 			}
 		});
 		return true;
@@ -168,36 +206,82 @@ $(function(){
 		$(e.target).parent().removeClass('focus');
 	});
 	$('#slider-container,#ticker-container').width($('body').width()-$('.layer-details').width());
+	
 	$(window).resize(function(){
 		$('#slider-container,#ticker-container').width($('body').width()-$('.layer-details').width());
 	});
-	$('body').click(function(e){
-		if($(e.target).is('.play-btn')){
-			if($(e.target).hasClass('playing')){
-				document.getElementById("canvas").pauseAnimations();
-			}
-			else{
-				document.getElementById("canvas").unpauseAnimations();
-				updateSlider();
-			}
+
+	$('.layer-details input').keypress(function(e){
+		if(e.keyCode == 13)
+			editKeyFrame(currentTrack, currentKeyFrame);
+	});
+
+	$('.play-btn').click(function(e){
+		if($(e.target).hasClass('playing')){
+			document.getElementById("canvas").pauseAnimations();
 		}
-		else if($(e.target).is('.rewind-btn')){
-			document.getElementById("canvas").setCurrentTime(0);
-			slider.val(0);
+		else{
+			document.getElementById("canvas").unpauseAnimations();
+			updateSlider();
 		}
-		else if($(e.target).is('.bar')){
+	});
+	$('.stop-btn').click(function(e){
+		document.getElementById("canvas").setCurrentTime(0);
+		slider.val(0);
+		document.getElementById("canvas").pauseAnimations();
+	});
+
+
+	$('.rewind-btn').click(function(e){
+		document.getElementById("canvas").setCurrentTime(0);
+		slider.val(0);
+	});
+
+	$('body').on('click', '.bar', function(e){
+		console.log(e);
+		console.log(e.isDefaultPrevented());
+		console.log(draggingKeyFrame);
+		if($(e.currentTarget).hasClass('.keyframe'))
+			return;
+		if(!e.isDefaultPrevented()){
 			var relPosX = $(e.target).position().left;
 			var posX = e.pageX - relPosX;
-			$(e.target).append('<div class="keyframe" data-pos="' + posX + '" style="left:'+(posX-5)+'px;"></div>');
-			allowDrag();
+			currentKeyFrame = parseInt(posX);
+			currentTrack = $(this).closest('.clearfix').data('trackid');
+			createKeyFrame(currentTrack, currentKeyFrame);
 		}
-		else if($(e.target).is('.dropdown')){
+		allowDrag();
+	});
+
+	$('body').on('click', '.keyframe', function(e){
+		e.preventDefault();
+		if(!draggingKeyFrame) {		
+			$('.keyframe').removeClass('selected');
+			$(this).addClass('selected');
+			currentKeyFrame = $(this).data('pos');
+			currentTrack = $(this).closest('.clearfix').data('trackid');
+			console.log(currentTrack);
+			populateDetails(currentTrack, currentKeyFrame);
+			$('.layer-title').html('<span style="background-color:' + $(e.target).parent().data('color') + ';"></span>' + $(e.target).parent().parent().find('.layer-name').html());
+			$('.layer-details-inner').removeClass('hidden');
+		}
+	});
+
+	$('body').on('click', '.remove-layer-btn', function(e){
+		// remove a keyframe
+		removeKeyFrameByPos(tracks[currentTrack].keyframes, currentKeyFrame);
+		var el = findKeyFrameByPos(tracks.currentTrack.keyframes, currentKeyFrame)
+		tracks.currentTrack.keyframes[currentKeyFrame][el].remove();
+		// todo
+	});
+	$('body').click(function(e){
+		if($(e.target).is('.dropdown')){
 			$('div[data-target="'+$(e.target).attr('id')+'"]').toggle();
 		}
 		else if($(e.target).is('.dropdown-item')){
 			$(e.target).parent().children().removeClass('selected');
 			$(e.target).addClass('selected');
-			$('#'+$(e.target).parent().parent().data('target')).val($(e.target).html()).data('value',$(e.target).data('value'));
+			$('#'+$(e.target).parent().parent().data('target')).val($(e.target).html()).data('value',$(e.target).data('value')).addClass('modified').parent().addClass('modified-parent');
 			$(e.target).parent().parent().hide();
 
 			if($(e.target).parent().parent().data('target')=='project-frame'){
@@ -216,8 +300,11 @@ $(function(){
 			scale -= scale*.1;
 		}
 	});
-	$(document).keypress(function(e){
+
+	$(document).keyup(function(e){
 		if(!$(e.target).is('input:focus') && e.which == 32){
+			// space key
+			e.preventDefault();
 			if($('.play-btn').hasClass('playing')){
 				document.getElementById("canvas").pauseAnimations();
 			}
@@ -227,34 +314,121 @@ $(function(){
 			}
 			return false;
 		}
+		else if(e.which == 8){
+			// delete key
+			$('.selected.keyframe').remove();
+			// todo david
+		}
 	});
+
 	function updateCanvasDimensionsFromDropdown(){
 		var dims = $('#project-frame').data('value').split(',');
 		if(dims[0]>0 && dims[1]>0){
-			$('#project-width').val(dims[0]);
-			$('#project-height').val(dims[1]);
+			$('#project-w').val(dims[0]);
+			$('#project-h').val(dims[1]);
 			$('#canvas,#canvas-center').width(dims[0]);
 			$('#canvas').height(dims[1]);
 		}
 	}
 	function updateCanvasDimensions(){
-		var dims = [$('#project-width').val(), $('#project-height').val()];
+		var dims = [$('#project-w').val(), $('#project-h').val()];
 		if(dims[0]>0 && dims[1]>0){
 			$('#project-frame').data('value',dims[0]+','+dims[1]).val('custom');
 			$('#canvas,#canvas-center').width(dims[0]);
 			$('#canvas').height(dims[1]);
 		}
 	}
-	$('#project-height,#project-width').on("keyup",function(e){
+	$('#project-h,#project-w').on("keyup",function(e){
 		updateCanvasDimensions();
 	});
+
+	$('body').on('drag', '.keyframe', function(e){
+		draggingKeyFrame = true;
+	});
+
+	$('body').on('mouseup', '.keyframe', function(e){
+		e.preventDefault();
+		draggingKeyFrame = false;
+	});
+
+
+	// keyframe property watching
+	$('body').on('change', '.layer-details input', function(e){
+		$(e.target).addClass('modified').parent().addClass('modified-parent');
+	});
+
+
+	$('#project-width').blur(function(){
+		var w = $(this).val()
+		if(w == parseInt(w))
+			$('#canvas').width(w);
+		else 
+			$(this).parent().addClass('error');
+	});
+
+	$('#project-height').blur(function(){
+		var h = $(this).val()
+		if(h == parseInt(h))
+			$('#canvas').height(h);
+		else 
+			$(this).parent().addClass('error');
+	});
+
+	$('#project-duration').blur(function(){
+		var h = $(this).val()
+		if(h == parseInt(h))
+			var x = null;
+		else 
+			$(this).parent().addClass('error');
+	});
+
+	$('#project-height, #project-width, #project-duration').keyup(function(e){
+		var v = $(this).val()
+		if(v == parseInt(v) || v == "")
+			$(this).parent().removeClass('error');
+		else 
+			$(this).parent().addClass('error');
+		if(e.keyCode == 13)
+			$(this).blur();
+	});
+
+	// function setAnimation(el){
+
+	// 	if(translate || rotate || scale){
+	// 		var anim = document.createElementNS("http://www.w3.org/2000/svg", "animateTransform");
+	// 		anim.className = "animator";
+	// 		newG.appendChild(anim);
+	// 	}
+
+	// 	// $('#'+id)
+	// 	$('#layer-x').val();
+	// 	$('#layer-opacity').val();
+	// }
+
+
+
+	// animate
+	// attributeName
+	// dur
+	// to
+	// from
+	// begin
+
+	// animateTransform
+	// type
+	// repeatCount
+
+	$('#project-title-input').click(function(){
+		$(this).select();
+	})
 
 	$('#project-title-input').blur(function(){
 		if($(this).val() == "")
 			$(this).val("Project 1");
 	})
+
 	setupScrub();
-	buildLayers(svg);
+
 	allowDrag();
 	buildDropdowns();
 });
