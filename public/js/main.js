@@ -114,8 +114,7 @@ $(function(){
 		var obj = {
 			"el": newG,
 			"keyframes": [],
-			"animations": [],
-			"layerName": fileName.replace('.svg','')
+			"trackName": fileName.replace('.svg','')
 		}
 		tracks[trackID] = obj;
 		for(var i = 0; i < svgParsed.length; i ++){
@@ -215,15 +214,20 @@ $(function(){
 	});
 
 	$('.layer-details input').keypress(function(e){
-		if(e.keyCode == 13)
+		if(e.keyCode == 13){
 			editKeyFrame(currentTrack, currentKeyFrame);
+			$(e.target).blur();
+		}
 	});
 
 	$('#save-btn').click(function(e){
 		var s = new XMLSerializer();
 		var d = $('#canvas').get(0);
 		 var str = s.serializeToString(d);
-		window.prompt("Copy to clipboard: Ctrl+C, Enter", str);
+		 var projectTitle = $('#project-title-input').val()
+		 var blob = new Blob([str], {type: "image/svg+xml"});
+		 saveAs(blob, projectTitle+".svg");
+		// window.prompt("Copy to clipboard: Ctrl+C, Enter", str);
 	});
 
 	$('.play-btn').click(function(e){
@@ -274,14 +278,15 @@ $(function(){
 			populateDetails(currentTrack, currentKeyFrame);
 			$('.layer-title-container').html('<span style="background-color:' + $(e.target).parent().data('color') + ';"></span><span class="layer-title">' + $(e.target).parent().parent().find('.layer-name').html() + '</span>');
 			$('.layer-details-inner').removeClass('hidden');
+			alignStick(currentKeyFrame);
 		}
 	});
 
 	$('body').on('click', '.remove-layer-btn', function(e){
 		if($('.layer-title').html()!='(empty)'){
 			$.each(tracks,function(i,v){
-				console.log(v.layerName,$('.layer-title').html());
-				if(v.layerName == $('.layer-title').html()){
+				console.log(v.trackName,$('.layer-title').html());
+				if(v.trackName == $('.layer-title').html()){
 					delete tracks[i];
 					document.getElementById(i).remove();
 				}
@@ -459,4 +464,8 @@ $(function(){
 
 	allowDrag();
 	buildDropdowns();
+
+	document.getElementById("canvas").setCurrentTime(0);
+	slider.val(0);
+	document.getElementById("canvas").pauseAnimations();
 });
